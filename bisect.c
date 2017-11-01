@@ -380,8 +380,10 @@ struct commit_list *find_bisection(struct commit_list *list,
 		unsigned flags = p->item->object.flags;
 
 		next = p->next;
-		if (flags & UNINTERESTING)
+		if (flags & UNINTERESTING) {
+			free(p);
 			continue;
+		}
 		p->next = last;
 		last = p;
 		if (!(flags & TREESAME))
