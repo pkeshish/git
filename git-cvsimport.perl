@@ -786,6 +786,13 @@ open(CVS, "<$cvspsfile") or die $!;
 #
 #---------------------
 
+# NOTE:
+## pk, 2017/10/30
+# patched cvsps will output ^Log: line with number of lines of log
+# which are to follow. This makes parsing robust for cases where the
+# log message contains ^Members: lines! Happens in OpenBSD sources:
+# e.g., See src/usr.sbin/bgpd/rde.c
+
 my $state = 0;
 
 sub update_index (\@\@) {
@@ -816,7 +823,7 @@ sub write_tree () {
 	return $tree;
 }
 
-my ($patchset,$date,$author_name,$author_email,$author_tz,$branch,$ancestor,$tag,$logmsg);
+my ($patchset,$date,$author_name,$author_email,$author_tz,$branch,$ancestor,$tag,$logmsg,$loglines);
 my (@old,@new,@skipped,%ignorebranch,@commit_revisions);
 
 # commits that cvsps cannot place anywhere...
@@ -1005,8 +1012,13 @@ while (<CVS>) {
 			$tag = $_;
 		}
 		$state = 7;
-	} elsif ($state == 7 and /^Log:/) {
+	} elsif ($state == 7 and /^Log:\s*(\d+)?$/) {
+		$loglines = $1 // -1;
 		$logmsg = "";
+		while ($loglines-- > 0 && ($_ = <CVS>)) {
+			chomp;
+			$logmsg .= "$_\n";
+		}
 		$state = 8;
 	} elsif ($state == 8 and /^Members:/) {
 		$branch = $opt_o if $branch eq "HEAD";
